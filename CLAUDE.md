@@ -8,7 +8,7 @@ The existing implementation targets math reasoning (MATH500 benchmark). The goal
 
 ## Repository Structure
 
-Source files are in the **parent directory** (`../`):
+Source files are in the **repository root**:
 
 | File | Purpose |
 |------|---------|
@@ -18,26 +18,28 @@ Source files are in the **parent directory** (`../`):
 | `math_normalize.py` | Mathematical expression normalization |
 | `MATH500.json` | 500 math problems dataset with ground truth |
 | `run_inference.slurm` | SLURM HPC job script |
+| `requirements.txt` | Pinned Python dependencies |
 
 ## Tech Stack
 
 - **Language**: Python 3
-- **Core deps**: PyTorch, HuggingFace Transformers, NumPy, SymPy, pylatexenc, tqdm
+- **Core deps**: PyTorch (2.10+cu126), Transformers (5.4), NumPy, SymPy, math-verify, tqdm
+- **Other notable deps**: latex2sympy2_extended, pandas, pyarrow, safetensors, rich, triton
 - **Models**: HuggingFace pretrained models (e.g., `Qwen/Qwen2.5-7B`)
-- **No build step** — pure Python, no `requirements.txt` or `pyproject.toml` yet
+- **GPU**: CUDA 12.6 (nvidia libs pinned in requirements)
 
 ## Install Dependencies
 
 ```bash
-pip install torch transformers numpy sympy pylatexenc tqdm
+pip install -r requirements.txt
 ```
 
 ## Running
 
 ```bash
 # Evaluate on MATH500
-python ../eval_power_smc.py \
-    --dataset ../MATH500.json \
+python eval_power_smc.py \
+    --dataset MATH500.json \
     --model Qwen/Qwen2.5-7B \
     --output results/power_smc.jsonl \
     --alpha 4.0 \
@@ -46,7 +48,7 @@ python ../eval_power_smc.py \
     --prompt_batch_size 4
 
 # Resume interrupted runs
-python ../eval_power_smc.py ... --resume
+python eval_power_smc.py ... --resume
 ```
 
 ## Key Parameters
