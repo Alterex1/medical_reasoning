@@ -130,11 +130,21 @@ def run_eval(args):
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
+    # Pick the fastest available attention implementation:
+    #   flash_attention_2 > sdpa > eager (default)
+    # flash_attention_2 requires `pip install flash-attn` and Ampere+ GPU.
+    # sdpa is built into PyTorch ≥2.0 and needs no extra install.
+    try:
+        import flash_attn  # noqa: F401
+        attn_impl = "flash_attention_2"
+    except ImportError:
+        attn_impl = "sdpa"
+    print(f"Using attention implementation: {attn_impl}")
+
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
-        # torch_dtype=dtype_map[args.dtype],
-        dtype='auto',
-        # attn_implementation="flash_attention_2",
+        dtype=dtype_map[args.dtype],
+        attn_implementation=attn_impl,
         device_map="auto",
         trust_remote_code=True,
     ).eval()

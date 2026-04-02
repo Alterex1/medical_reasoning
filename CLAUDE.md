@@ -17,7 +17,9 @@ Source files are in the **repository root**:
 | `grader.py` | Answer grading via SymPy simplification and LaTeX parsing |
 | `math_normalize.py` | Mathematical expression normalization |
 | `MATH500.json` | 500 math problems dataset with ground truth |
-| `run_inference.slurm` | SLURM HPC job script |
+| `run_inference.slurm` | SLURM HPC job script (legacy) |
+| `run_math500_eval.slurm` | SLURM job: build flash-attn + run full MATH500 eval |
+| `install_flash_attn.slurm` | SLURM job: CPU-only flash-attn build |
 | `requirements.txt` | Pinned Python dependencies |
 
 ## Tech Stack
@@ -32,20 +34,57 @@ Source files are in the **repository root**:
 
 ```bash
 pip install -r requirements.txt
+
+# Flash Attention 2 (optional, requires Ampere+ GPU i.e. A100/H100/H200)
+# Build from source — needs CUDA toolkit and takes 10-20 min with 16 CPUs
+# For CPU-only build node, set the target arch explicitly:
+TORCH_CUDA_ARCH_LIST="9.0" MAX_JOBS=8 pip install flash-attn --no-build-isolation
+
+# Or submit as a SLURM job:
+sbatch install_flash_attn.slurm
 ```
+
+If flash-attn is not installed, the code automatically falls back to PyTorch SDPA (no extra install needed).
 
 ## Running
 
 ```bash
-# Evaluate on MATH500
+# Evaluate on MATH500 (H100, bfloat16, flash-attn)
 python eval_power_smc.py \
     --dataset MATH500.json \
     --model Qwen/Qwen2.5-7B \
     --output results/power_smc.jsonl \
+    --dtype bfloat16 \
     --alpha 4.0 \
     --n_particles 64 \
     --n_rollouts 32 \
-    --prompt_batch_size 4
+    --prompt_batch_size 4 \
+    --max_new_tokens 512
+
+# Quick test run (5 problems)
+python eval_power_smc.py \
+    --dataset MATH500.json \
+    --model Qwen/Qwen2.5-7B \
+    --output results/power_smc.jsonl \
+    --dtype bfloat16 \
+    --alpha 4.0 \
+    --n_particles 64 \
+    --n_rollouts 32 \
+    --prompt_batch_size 4 \
+    --max_new_tokens 512 \
+    --max_examples 5
+
+# V100 fallback (float16, reduced params to fit 32GB VRAM)
+python eval_power_smc.py \
+    --dataset MATH500.json \
+    --model Qwen/Qwen2.5-7B \
+    --output results/power_smc.jsonl \
+    --dtype float16 \
+    --alpha 4.0 \
+    --n_particles 16 \
+    --n_rollouts 4 \
+    --prompt_batch_size 1 \
+    --max_new_tokens 512
 
 # Resume interrupted runs
 python eval_power_smc.py ... --resume
@@ -82,4 +121,17 @@ The core `power_smc.py` sampling algorithm should be largely reusable as-is — 
 
 ## HPC
 
-SLURM config targets: 1 GPU (hpg-b200 partition), 32GB RAM, 2-day wall time, conda env `jiv_finetune`.
+- **Conda env**: `medProj`
+- **Recommended GPU**: H100 PCIe (80GB, supports bfloat16 + flash-attn)
+- **V100 fallback**: 32GB, float16 only, no flash-attn, reduce n_particles to 16
+- **Attention**: flash_attention_2 → sdpa (auto-fallback if flash-attn not installed)
+
+```bash
+# Interactive H100 session
+srun --nodes=1 --ntasks-per-node=1 --time=5:00:00 --job-name=SimpleJob \
+    --cpus-per-task=4 --mem-per-cpu=8G --partition=normal \
+    --gres=gpu:nvidia_h100_pcie:1 --pty bash
+
+# Batch job (full eval)
+sbatch run_math500_eval.slurm
+```
