@@ -42,6 +42,7 @@ packaging==26.0
 pandas==2.3.3
 pillow==12.1.1
 pyarrow==23.0.1
+pylatexenc==2.10
 Pygments==2.20.0
 python-dateutil==2.9.0.post0
 pytz==2026.1.post1
