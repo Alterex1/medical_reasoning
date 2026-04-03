@@ -4,8 +4,8 @@ Same structure as eval_temp.py but uses PowerSMC from power_smc.py.
 No force-answer, no chat template, same JSON dataset format.
 Output: JSONL with methods: {power_smc}
 
-Usage:
-    python eval_power_smc.py \
+Usage (from repo root):
+    python -m eval.math.eval_power_smc \
         --dataset          data/MATH500.json \
         --model            Qwen/Qwen2.5-7B \
         --output           results/power_smc.jsonl \
@@ -15,7 +15,7 @@ Usage:
         --prompt_batch_size 4
 
 Resume a crashed run (skips already-written problems, appends new ones):
-    python eval_power_smc.py ... --resume
+    python -m eval.math.eval_power_smc ... --resume
 """
 import argparse
 import json
@@ -26,8 +26,8 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from grader import grade_answer, parse_answer, parse_boxed_space_form
-from power_smc import PowerSMC, normalize_weights
+from eval.math.grader import grade_answer, parse_answer, parse_boxed_space_form
+from core.power_smc import PowerSMC, normalize_weights
 
 # ─── prompt (identical to eval_temp.py) ────────────────────────────────────────
 PROMPT      = "Can you solve the following math problem? "

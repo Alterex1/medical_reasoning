@@ -29,8 +29,8 @@ fi
 echo "Starting Power-SMC eval..."
 date
 
-python eval_power_smc.py \
-    --dataset MATH500.json \
+python -m eval.math.eval_power_smc \
+    --dataset data/MATH500.json \
     --model Qwen/Qwen2.5-7B \
     --output results/power_smc.jsonl \
     --dtype bfloat16 \

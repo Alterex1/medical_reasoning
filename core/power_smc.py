@@ -351,10 +351,15 @@ class PowerSMC:
         attention_mask:  Optional[torch.LongTensor] = None,
         track_weights:   bool = False,
         max_new_tokens:  int = 2048,
+        prefill_kwargs:  Optional[dict] = None,
     ) -> PowerSMCOutput:
         """
         Run Power-SMC on a single prompt (batch_size = 1).
         Returns PowerSMCOutput with all_sequences shape (N, prompt_len + max_new_tokens).
+
+        prefill_kwargs : optional extra arguments passed to the model during
+                         the prefill step only (e.g., pixel_values and
+                         image_grid_thw for vision-language models).
         """
         if input_ids.dim() == 1:
             input_ids = input_ids.unsqueeze(0)
@@ -373,7 +378,8 @@ class PowerSMC:
             if attention_mask is not None
             else torch.ones(1, prompt_len, dtype=torch.long, device=device)
         )
-        prefill       = self.model(input_ids=input_ids, attention_mask=attn_1, use_cache=True)
+        _extra = prefill_kwargs or {}
+        prefill       = self.model(input_ids=input_ids, attention_mask=attn_1, use_cache=True, **_extra)
         past          = replicate_kv_cache(prefill.past_key_values, 1, N, device)
         cached_logits = prefill.logits[0, -1, :].unsqueeze(0).expand(N, -1).clone()
 
@@ -540,10 +546,15 @@ class PowerSMC:
         input_ids_list:      List[torch.LongTensor],
         attention_mask_list: Optional[List[torch.LongTensor]] = None,
         max_new_tokens:      int = 2048,
+        prefill_kwargs:      Optional[dict] = None,
     ) -> List[PowerSMCOutput]:
         """
         Run M independent Power-SMC chains simultaneously.
         Group m occupies rows [m*N : (m+1)*N] in every state tensor.
+
+        prefill_kwargs : optional extra arguments passed to the model during
+                         the prefill step only (e.g., pixel_values and
+                         image_grid_thw for vision-language models).
         """
         M      = len(input_ids_list)
         N      = self.N
@@ -565,7 +576,8 @@ class PowerSMC:
                 else 1
             )
 
-        prefill       = self.model(input_ids=padded_ids, attention_mask=padded_attn, use_cache=True)
+        _extra = prefill_kwargs or {}
+        prefill       = self.model(input_ids=padded_ids, attention_mask=padded_attn, use_cache=True, **_extra)
         past          = replicate_kv_cache(prefill.past_key_values, M, N, device)
         cached_logits = prefill.logits[:, -1, :].repeat_interleave(N, dim=0).clone()
 

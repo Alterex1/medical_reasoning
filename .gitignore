@@ -1,0 +1,23 @@
+# Claude Code
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+
+# Data (downloaded separately)
+data/vqa_rad/images/
