@@ -266,8 +266,12 @@ class LlavaMedAdapter(VLMAdapter):
 
         image_tensor = self._process_image(image_path)
 
+        # LLaVA's generate() wraps prepare_inputs_labels_for_multimodal,
+        # which reads the token tensor from the positional `inputs` arg
+        # (not `input_ids`). Passing `input_ids=` leaves `inputs=None`
+        # and crashes in llava_arch.py with 'NoneType has no shape'.
         return {
-            "input_ids": input_ids,
+            "inputs": input_ids,
             "images": image_tensor,
             "prompt_len": input_ids.shape[1],
         }
