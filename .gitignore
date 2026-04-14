@@ -21,3 +21,5 @@ logs/
 
 # Data (downloaded separately)
 data/vqa_rad/images/
+reasoning-with-sampling/
+data/vqa_rad/*.json
