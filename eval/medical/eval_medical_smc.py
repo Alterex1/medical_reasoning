@@ -2,10 +2,12 @@
 Medical VQA Eval — Power-SMC sampler with Vision-Language Models
 
 Evaluates Power-SMC on medical visual question answering datasets
-(VQA-RAD, SLAKE, etc.) using multimodal models like Qwen2.5-VL.
+(VQA-RAD, SLAKE, etc.) using multimodal models like Qwen2.5-VL,
+LLaVA-Med, Med-Gemma, etc.
 
 The core SMC algorithm is reused from power_smc.py — only the evaluation
 harness, prompting, and grading are adapted for the medical domain.
+Model-specific logic is handled by adapters in model_adapters.py.
 
 Usage:
     # Download dataset first (from repo root)
@@ -23,6 +25,10 @@ Usage:
         --prompt_batch_size 4 \
         --max_new_tokens 256
 
+    # LLaVA-Med (auto-detected from model name)
+    python -m eval.medical.eval_medical_smc \
+        --model microsoft/llava-med-v1.5-mistral-7b ...
+
     # Resume a crashed run
     python -m eval.medical.eval_medical_smc ... --resume
 """
@@ -33,59 +39,15 @@ import sys
 from pathlib import Path
 
 import torch
-from PIL import Image
 from tqdm import tqdm
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
 from eval.medical.medical_grader import (
     grade_medical_answer,
     is_closed_ended,
     parse_medical_answer,
 )
+from eval.medical.model_adapters import create_adapter, get_prompt
 from core.power_smc import PowerSMC, normalize_weights
-
-
-# ─── Prompt templates ─────────────────────────────────────────────────────────
-
-PROMPT_COT_CLOSED = (
-    "Look at this medical image and answer the following question.\n"
-    "Question: {question}\n"
-    "Please reason step by step about what you observe in the image, "
-    "then provide your final answer as a single word (Yes or No) after 'Answer:'."
-)
-
-PROMPT_COT_OPEN = (
-    "Look at this medical image and answer the following question.\n"
-    "Question: {question}\n"
-    "Please reason step by step about what you observe in the image, "
-    "then provide your final answer as a short phrase after 'Answer:'."
-)
-
-PROMPT_DIRECT = (
-    "Look at this medical image and answer the following question.\n"
-    "Question: {question}\n"
-    "Answer:"
-)
-
-
-def build_messages(question: str, image_path: str, cot: bool = True,
-                   question_type: str = "open") -> list:
-    """Build Qwen2.5-VL chat message format with image + question."""
-    if not cot:
-        prompt = PROMPT_DIRECT.format(question=question)
-    elif question_type == "closed":
-        prompt = PROMPT_COT_CLOSED.format(question=question)
-    else:
-        prompt = PROMPT_COT_OPEN.format(question=question)
-    return [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": f"file://{os.path.abspath(image_path)}"},
-                {"type": "text", "text": prompt},
-            ],
-        }
-    ]
 
 
 def pass_at_k(n: int, c: int, k: int):
@@ -126,9 +88,11 @@ def load_completed(output_path: str) -> tuple[set, int, int]:
             if idx is None:
                 continue
             completed.add(idx)
-            psc = rec.get("methods", {}).get("power_smc", {})
-            total_correct += psc.get("n_correct",  0)
-            total_samples += psc.get("n_rollouts", 0)
+            methods = rec.get("methods", {})
+            # Support both power_smc and baseline method keys
+            method_data = methods.get("power_smc") or methods.get("baseline") or {}
+            total_correct += method_data.get("n_correct",  0)
+            total_samples += method_data.get("n_rollouts", 0)
     return completed, total_correct, total_samples
 
 
@@ -171,39 +135,17 @@ def run_eval(args):
     device    = "cuda" if torch.cuda.is_available() else "cpu"
 
     print(f"Loading {args.model} ...")
-
-    # Attention implementation: flash_attention_2 > sdpa > eager
-    try:
-        import flash_attn  # noqa: F401
-        attn_impl = "flash_attention_2"
-    except ImportError:
-        attn_impl = "sdpa"
-    print(f"Using attention implementation: {attn_impl}")
-
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        args.model,
-        dtype=dtype_map[args.dtype],
-        attn_implementation=attn_impl,
-        device_map="auto",
-        trust_remote_code=True,
-    ).eval()
-
-    processor = AutoProcessor.from_pretrained(
-        args.model,
-        trust_remote_code=True,
-        min_pixels=256 * 28 * 28,
-        max_pixels=1280 * 28 * 28,
+    adapter = create_adapter(
+        args.model, dtype_map[args.dtype], device,
+        model_type=args.model_type,
     )
-
-    if processor.tokenizer.pad_token_id is None:
-        processor.tokenizer.pad_token_id = processor.tokenizer.eos_token_id
-
+    model = adapter.model
     print(f"Model loaded on {device}")
 
     # ── Power-SMC sampler ─────────────────────────────────────────────────────
     sampler = PowerSMC(
         model           = model,
-        tokenizer       = processor.tokenizer,
+        tokenizer       = adapter.tokenizer,
         alpha           = args.alpha,
         n_particles     = args.n_particles,
         kappa           = args.kappa,
@@ -238,37 +180,16 @@ def run_eval(args):
             q_type     = "closed" if is_closed_ended(gt) else "open"
 
             # ── build VLM inputs ─────────────────────────────────────────────
-            messages = build_messages(question, image_path, cot=args.cot,
-                                      question_type=q_type)
-            text = processor.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            prompt_text = get_prompt(question, cot=args.cot, question_type=q_type)
+            vlm_inputs = adapter.prepare_inputs(question, image_path, prompt_text)
 
-            # Process image
-            from qwen_vl_utils import process_vision_info
-            image_inputs, video_inputs = process_vision_info(messages)
-
-            inputs = processor(
-                text=[text],
-                images=image_inputs,
-                videos=video_inputs,
-                padding=True,
-                return_tensors="pt",
-            ).to(device)
-
-            input_ids  = inputs["input_ids"]
-            attn_mask  = inputs.get("attention_mask")
-            prompt_len = input_ids.shape[1]
-
-            # Extra kwargs for VLM prefill (pixel values, image grid info)
-            prefill_kwargs = {}
-            if "pixel_values" in inputs:
-                prefill_kwargs["pixel_values"] = inputs["pixel_values"]
-            if "image_grid_thw" in inputs:
-                prefill_kwargs["image_grid_thw"] = inputs["image_grid_thw"]
+            input_ids      = vlm_inputs["input_ids"]
+            attn_mask      = vlm_inputs["attention_mask"]
+            prompt_len     = vlm_inputs["prompt_len"]
+            prefill_kwargs = vlm_inputs["prefill_kwargs"]
 
             samples_out = []
-            eos_id = processor.tokenizer.eos_token_id
+            eos_id = adapter.tokenizer.eos_token_id
 
             for chunk_start in tqdm(range(0, args.n_rollouts, M), leave=False,
                                     desc=f"  idx={abs_idx} chunks"):
@@ -303,7 +224,7 @@ def run_eval(args):
                         finish_reason = "length"
 
                     n_tokens        = int(gen_tokens.shape[0])
-                    completion      = processor.tokenizer.decode(
+                    completion      = adapter.tokenizer.decode(
                         gen_tokens.cpu().tolist(), skip_special_tokens=True
                     )
                     sum_logprob     = out.chosen_sum_logprob
@@ -409,6 +330,9 @@ if __name__ == "__main__":
 
     p.add_argument("--dataset",                 type=str,   default="data/vqa_rad/VQA_RAD_test.json")
     p.add_argument("--model",                   type=str,   default="Qwen/Qwen2.5-VL-7B-Instruct")
+    p.add_argument("--model-type",             type=str,   default=None,
+                   choices=["qwen", "llava", "medgemma"],
+                   help="VLM type (auto-detected from model name if omitted).")
     p.add_argument("--output",                  type=str,   default="results/medical_power_smc.jsonl")
     p.add_argument("--n_rollouts",              type=int,   default=1,
                    help="Total independent SMC completions per question.")
