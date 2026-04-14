@@ -102,6 +102,16 @@ def _extract_yes_no_from_text(text: str) -> Optional[str]:
         r"\bis\s+absent\b",
         r"\bwithout\s+(?:evidence|sign|finding)\b",
         r"\bnormal\s+(?:appearing|size|shape)\b.*\bno\b",
+        # Broader "no" pattern: "no" followed by any noun/adjective (catches
+        # short-form responses like "no intraparenchymal abnormalities")
+        r"\bno\s+\w+\s+(?:abnormalit|lesion|fracture|mass|effusion|finding|opacity|enlargement|patholog)",
+        # "does not show" / "did not reveal" / "shows no" / "reveals no"
+        r"\b(?:does|did)\s+not\s+(?:show|reveal|demonstrate|indicate)\b",
+        r"\b(?:show|reveal|demonstrate|indicate)s?\s+no\b",
+        # "there is/are no ..." (broader than first pattern)
+        r"\bthere\s+(?:is|are)\s+no\b",
+        # "not seen here" / "is not present"
+        r"\bnot\s+seen\b",
     ]
 
     # Check from the end of the text backward — later statements are more conclusive
@@ -170,6 +180,15 @@ def normalize_medical_answer(answer: str) -> str:
     match = re.match(r"^(yes|no)\b", s)
     if match:
         return match.group(1)
+
+    # Handle full sentences with implicit yes/no signal
+    # e.g., "there are no intraparenchymal abnormalities in the lung fields" → "no"
+    # e.g., "the image shows evidence of an aortic aneurysm" → "yes"
+    # Only apply this when the answer looks like a full sentence (has spaces)
+    if " " in s:
+        extracted = _extract_yes_no_from_text(s)
+        if extracted is not None:
+            return extracted
 
     return s
 
