@@ -234,7 +234,7 @@ class LlavaMedAdapter(VLMAdapter):
         image = Image.open(image_path).convert("RGB")
         image_tensor = self.image_processor.preprocess(
             image, return_tensors="pt"
-        )["pixel_values"].to(self.device)
+        )["pixel_values"].to(device=self.device, dtype=self.model.dtype)
         return image_tensor
 
     def _build_prompt(self, prompt_text: str) -> str:
