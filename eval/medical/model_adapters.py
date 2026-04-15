@@ -230,24 +230,58 @@ class LlavaMedAdapter(VLMAdapter):
         return cls(model, tokenizer, image_processor, device)
 
     def _process_image(self, image_path: str) -> torch.Tensor:
-        """Load and preprocess image for LLaVA."""
+        """Load and preprocess image for LLaVA.
+
+        Uses llava's process_images() which honors model.config.image_aspect_ratio
+        (e.g., "pad" for v1.5). Returns [1, 3, H, W] in model dtype on device.
+        """
+        from llava.mm_utils import process_images
         image = Image.open(image_path).convert("RGB")
-        image_tensor = self.image_processor.preprocess(
-            image, return_tensors="pt"
-        )["pixel_values"].to(device=self.device, dtype=self.model.dtype)
-        return image_tensor
+        image_tensor = process_images([image], self.image_processor, self.model.config)
+        # process_images returns either a tensor [N, 3, H, W] or a list; normalize.
+        if isinstance(image_tensor, list):
+            image_tensor = image_tensor[0].unsqueeze(0)
+        return image_tensor.to(device=self.device, dtype=self.model.dtype)
 
     def _build_prompt(self, prompt_text: str) -> str:
-        """Build LLaVA Mistral Instruct prompt format."""
-        return f"USER: <image>\n{prompt_text}\nASSISTANT:"
+        """Build LLaVA prompt using the mistral_instruct conv template.
+
+        LLaVA-Med-v1.5-mistral-7b was trained with conv_mode="mistral_instruct"
+        (SeparatorStyle.LLAMA_2, "[INST] ... [/INST]" form). Using the generic
+        "USER:/ASSISTANT:" template produces a train/infer mismatch that costs
+        10-20pp on VQA benchmarks.
+        """
+        from llava.conversation import conv_templates
+        from llava.constants import DEFAULT_IMAGE_TOKEN
+
+        conv = conv_templates["mistral_instruct"].copy()
+        # Image token goes at the start of the user turn.
+        user_msg = DEFAULT_IMAGE_TOKEN + "\n" + prompt_text
+        conv.append_message(conv.roles[0], user_msg)
+        conv.append_message(conv.roles[1], None)
+        return conv.get_prompt()
+
+    def _tokenize(self, prompt: str) -> torch.Tensor:
+        """Tokenize a prompt containing <image>.
+
+        LLaVA replaces the <image> literal with IMAGE_TOKEN_INDEX (-200);
+        prepare_inputs_labels_for_multimodal then splices CLIP features at
+        that index during the forward pass. Plain tokenizer() would tokenize
+        <image> as raw characters and the image features would never be
+        spliced in — the model would answer from text alone.
+        """
+        from llava.mm_utils import tokenizer_image_token
+        from llava.constants import IMAGE_TOKEN_INDEX
+
+        input_ids = tokenizer_image_token(
+            prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt"
+        ).unsqueeze(0).to(self.device)
+        return input_ids
 
     def prepare_inputs(self, question: str, image_path: str,
                        prompt_text: str) -> dict:
         prompt = self._build_prompt(prompt_text)
-        input_ids = self.tokenizer(
-            prompt, return_tensors="pt"
-        ).input_ids.to(self.device)
-
+        input_ids = self._tokenize(prompt)
         image_tensor = self._process_image(image_path)
 
         return {
@@ -260,10 +294,7 @@ class LlavaMedAdapter(VLMAdapter):
     def prepare_generate_inputs(self, question: str, image_path: str,
                                 prompt_text: str) -> dict:
         prompt = self._build_prompt(prompt_text)
-        input_ids = self.tokenizer(
-            prompt, return_tensors="pt"
-        ).input_ids.to(self.device)
-
+        input_ids = self._tokenize(prompt)
         image_tensor = self._process_image(image_path)
 
         # LLaVA's generate() wraps prepare_inputs_labels_for_multimodal,
