@@ -164,6 +164,32 @@ def replicate_kv_cache(
     return reorder_kv_cache(past_key_values, idx)
 
 
+def get_kv_seq_length(past_key_values: object) -> int:
+    """
+    Return the sequence length stored in the KV cache.
+
+    For most models this equals input_ids.shape[-1] after prefill, but for
+    VLMs that splice image embeddings inside the forward pass (e.g.,
+    LLaVA via prepare_inputs_labels_for_multimodal) the cache can be longer
+    than the text input — every <image> placeholder token (IMAGE_TOKEN_INDEX)
+    is expanded into ~576 vision tokens, so the attention mask in the decode
+    loop must match the cache length, not input_ids.shape[-1].
+    """
+    if past_key_values is None:
+        return 0
+    # HF ≥ 4.36: DynamicCache exposes .get_seq_length()
+    if hasattr(past_key_values, "get_seq_length"):
+        try:
+            return int(past_key_values.get_seq_length())
+        except Exception:
+            pass
+    # Legacy tuple-of-tuples: past[layer][0 or 1] has shape (B, H, S, D)
+    try:
+        return int(past_key_values[0][0].shape[-2])
+    except Exception:
+        return 0
+
+
 def stitch_kv_cache(
     full_past:   object,
     active_past: object,
@@ -384,9 +410,15 @@ class PowerSMC:
         cached_logits = prefill.logits[0, -1, :].unsqueeze(0).expand(N, -1).clone()
 
         # ── Pre-allocate buffers ──────────────────────────────────────────────
-        attn_buf = torch.zeros(N, prompt_len + max_new_tokens, dtype=torch.long, device=device)
-        attn_buf[:, :prompt_len] = attn_1.expand(N, -1)
-        attn_len = prompt_len
+        # Use the actual KV-cache length (not input_ids length) — for VLMs like
+        # LLaVA, prepare_inputs_labels_for_multimodal expands the <image> token
+        # into ~576 vision tokens during forward, so cache_len > prompt_len.
+        # The decode-loop attention mask must match cache_len, else Mistral/LLaMA
+        # attention raises "mask size mismatch" on the first decode step.
+        cache_len = get_kv_seq_length(past) or prompt_len
+        attn_buf = torch.zeros(N, cache_len + max_new_tokens, dtype=torch.long, device=device)
+        attn_buf[:, :cache_len] = 1
+        attn_len = cache_len
 
         # ── SMC state ────────────────────────────────────────────────────────
         log_w        = torch.zeros(N, device=device)
@@ -581,9 +613,12 @@ class PowerSMC:
         past          = replicate_kv_cache(prefill.past_key_values, M, N, device)
         cached_logits = prefill.logits[:, -1, :].repeat_interleave(N, dim=0).clone()
 
-        attn_buf = torch.zeros(B, max_plen + max_new_tokens, dtype=torch.long, device=device)
-        attn_buf[:, :max_plen] = padded_attn.repeat_interleave(N, dim=0)
-        attn_len = max_plen
+        # See note in generate(): KV-cache length may exceed input length for
+        # multimodal models (LLaVA expands <image> into vision tokens).
+        cache_len = get_kv_seq_length(past) or max_plen
+        attn_buf = torch.zeros(B, cache_len + max_new_tokens, dtype=torch.long, device=device)
+        attn_buf[:, :cache_len] = 1
+        attn_len = cache_len
 
         log_w        = torch.zeros(B, device=device)
         done         = torch.zeros(B, dtype=torch.bool, device=device)
