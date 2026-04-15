@@ -1,0 +1,42 @@
+evc29
+/home/er617036/medical
+Tue Apr 14 22:22:23 EDT 2026
+=== LLaVA-Med Power-SMC eval ===
+Tue Apr 14 22:22:24 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading microsoft/llava-med-v1.5-mistral-7b ...
+Using adapter: LlavaMedAdapter
+Model loaded on cuda
+
+Power-SMC config: α=4.0  N=16  κ=0.5  resample=systematic  n_rollouts=4  prompt_batch_size=1
+
+=== LLaVA-Med Greedy baseline eval ===
+Tue Apr 14 22:27:48 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading microsoft/llava-med-v1.5-mistral-7b ...
+Using adapter: LlavaMedAdapter
+Model loaded on cuda
+
+Baseline config: temperature=0.0  do_sample=False  n_rollouts=1
+
+
+[BASELINE]  Overall   = 0.2195  (99/451)
+[BASELINE]  Closed    = 0.2143  (54/252)
+[BASELINE]  Open      = 0.2261  (45/199)
+Results written to results/llava_med_baseline_greedy_full.jsonl
+=== LLaVA-Med Temperature baseline eval ===
+Tue Apr 14 22:37:51 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading microsoft/llava-med-v1.5-mistral-7b ...
+Using adapter: LlavaMedAdapter
+Model loaded on cuda
+
+Baseline config: temperature=1.0  do_sample=True  n_rollouts=4
+
+
+[BASELINE]  Overall   = 0.2461  (444/1804)
+[BASELINE]  Closed    = 0.3274  (330/1008)
+[BASELINE]  Open      = 0.1432  (114/796)
+Results written to results/llava_med_baseline_temp_full.jsonl
+=== All LLaVA-Med evals done ===
+Tue Apr 14 23:20:56 EDT 2026

@@ -1,0 +1,11 @@
+Restoring modules from user's default
+
+Currently Loaded Modules:
+  1) anaconda/anaconda-2024.10   5) gdbm/gdbm-1.23-gcc-12.2.0
+  2) cuda/cuda-12.6.0            6) sqlite/sqlite-3.42.0-gcc-12.2.0
+  3) gcc/gcc-12.2.0              7) python/python-3.11.4-gcc-12.2.0
+  4) tcl/tcl-8.6.13-gcc-12.2.0
+
+ 
+
+[2026-04-14T22:07:11.328] error: *** JOB 584804 ON evc22 CANCELLED AT 2026-04-14T22:07:11 DUE to SIGNAL Terminated ***
