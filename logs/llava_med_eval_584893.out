@@ -1,0 +1,17 @@
+evc23
+/home/er617036/medical
+Tue Apr 14 23:38:23 EDT 2026
+=== LLaVA-Med Power-SMC eval ===
+Tue Apr 14 23:38:25 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading microsoft/llava-med-v1.5-mistral-7b ...
+Using adapter: LlavaMedAdapter
+Model loaded on cuda
+
+Power-SMC config: α=4.0  N=16  κ=0.5  resample=systematic  n_rollouts=4  prompt_batch_size=1
+
+
+[POWER-SMC]  Overall   = 0.3326  (600/1804)
+[POWER-SMC]  Closed    = 0.4444  (448/1008)
+[POWER-SMC]  Open      = 0.1910  (152/796)
+Results written to results/llava_med_power_smc_full.jsonl
