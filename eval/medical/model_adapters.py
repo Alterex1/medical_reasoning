@@ -270,10 +270,14 @@ class LlavaMedAdapter(VLMAdapter):
         # which reads the token tensor from the positional `inputs` arg
         # (not `input_ids`). Passing `input_ids=` leaves `inputs=None`
         # and crashes in llava_arch.py with 'NoneType has no shape'.
+        #
+        # Also: LLaVA's generate() returns ONLY the newly generated tokens
+        # (not prompt + new), so the eval script's `generated_ids[0, prompt_len:]`
+        # slice must be a no-op. Set prompt_len=0 to disable trimming.
         return {
             "inputs": input_ids,
             "images": image_tensor,
-            "prompt_len": input_ids.shape[1],
+            "prompt_len": 0,
         }
 
 
