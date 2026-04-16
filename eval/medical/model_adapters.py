@@ -354,7 +354,7 @@ class MedGemmaAdapter(VLMAdapter):
 
         model = AutoModelForImageTextToText.from_pretrained(
             model_name,
-            torch_dtype=dtype,
+            dtype=dtype,
             attn_implementation=attn_impl,
             device_map="auto",
         ).eval()
