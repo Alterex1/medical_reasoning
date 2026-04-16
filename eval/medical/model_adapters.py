@@ -315,7 +315,24 @@ class LlavaMedAdapter(VLMAdapter):
 # ─── Med-Gemma adapter ──────────────────────────────────────────────────────
 
 class MedGemmaAdapter(VLMAdapter):
-    """Adapter for Med-Gemma (google/medgemma-4b-it)."""
+    """Adapter for Med-Gemma (google/medgemma-4b-it).
+
+    Med-Gemma is a Gemma-2-based VLM fine-tuned on medical data.  It uses
+    the standard HF ``AutoModelForImageTextToText`` API with a SigLIP vision
+    encoder.  Images are encoded into 256 tokens by the processor (no
+    forward-time splicing like LLaVA), so ``cache_len == input_ids.shape[-1]``
+    and the Power-SMC attention-mask sizing works without special handling.
+
+    Key API details (from HF model card):
+      - processor.apply_chat_template() handles BOTH text and images in one
+        call when ``tokenize=True, return_dict=True`` — no separate
+        processor(text=, images=) step needed.
+      - generate() returns the **full** sequence (prompt + new tokens), so
+        the eval script's ``generated_ids[0, prompt_len:]`` trim is correct.
+      - Recommended dtype is bfloat16.
+      - Supports a system message; we use "You are an expert radiologist."
+        to match the model card's example.
+    """
 
     def __init__(self, model, processor, device):
         self.model = model
@@ -337,16 +354,12 @@ class MedGemmaAdapter(VLMAdapter):
 
         model = AutoModelForImageTextToText.from_pretrained(
             model_name,
-            dtype=dtype,
+            torch_dtype=dtype,
             attn_implementation=attn_impl,
             device_map="auto",
-            trust_remote_code=True,
         ).eval()
 
-        processor = AutoProcessor.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-        )
+        processor = AutoProcessor.from_pretrained(model_name)
 
         if processor.tokenizer.pad_token_id is None:
             processor.tokenizer.pad_token_id = processor.tokenizer.eos_token_id
@@ -354,31 +367,47 @@ class MedGemmaAdapter(VLMAdapter):
         return cls(model, processor, device)
 
     def _build_messages(self, image_path: str, prompt_text: str) -> list:
-        """Build chat messages with image for Med-Gemma."""
+        """Build chat messages with image for Med-Gemma.
+
+        Follows the model card's recommended format: a system message
+        establishing the medical-expert role, then a user turn containing
+        the image (as a PIL Image) and the question text.
+        """
         image = Image.open(image_path).convert("RGB")
         return [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": "You are an expert radiologist."}],
+            },
             {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
                     {"type": "text", "text": prompt_text},
                 ],
-            }
+            },
         ]
+
+    def _process(self, image_path: str, prompt_text: str) -> dict:
+        """Shared input processing for both SMC and baseline.
+
+        Uses the single-call apply_chat_template(tokenize=True) approach
+        from the model card, which handles text + image together and returns
+        a dict with input_ids, attention_mask, and pixel_values.
+        """
+        messages = self._build_messages(image_path, prompt_text)
+        inputs = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(self.model.device)
+        return inputs
 
     def prepare_inputs(self, question: str, image_path: str,
                        prompt_text: str) -> dict:
-        messages = self._build_messages(image_path, prompt_text)
-        image = Image.open(image_path).convert("RGB")
-
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        inputs = self.processor(
-            text=text,
-            images=[image],
-            return_tensors="pt",
-        ).to(self.device)
+        inputs = self._process(image_path, prompt_text)
 
         prefill_kwargs = {}
         if "pixel_values" in inputs:
@@ -393,18 +422,7 @@ class MedGemmaAdapter(VLMAdapter):
 
     def prepare_generate_inputs(self, question: str, image_path: str,
                                 prompt_text: str) -> dict:
-        messages = self._build_messages(image_path, prompt_text)
-        image = Image.open(image_path).convert("RGB")
-
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        inputs = self.processor(
-            text=text,
-            images=[image],
-            return_tensors="pt",
-        ).to(self.device)
-
+        inputs = self._process(image_path, prompt_text)
         result = {k: v for k, v in inputs.items()}
         result["prompt_len"] = inputs["input_ids"].shape[1]
         return result
