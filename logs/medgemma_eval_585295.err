@@ -1,0 +1,90 @@
+Restoring modules from user's default
+
+Currently Loaded Modules:
+  1) anaconda/anaconda-2024.10   5) gdbm/gdbm-1.23-gcc-12.2.0
+  2) cuda/cuda-12.6.0            6) sqlite/sqlite-3.42.0-gcc-12.2.0
+  3) gcc/gcc-12.2.0              7) python/python-3.11.4-gcc-12.2.0
+  4) tcl/tcl-8.6.13-gcc-12.2.0
+
+ 
+
+/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_smc.py", line 358, in <module>
+    run_eval(args)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_smc.py", line 138, in run_eval
+    adapter = create_adapter(
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 474, in create_adapter
+    return MODEL_REGISTRY[model_type].load(model_name, dtype, device)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 345, in load
+    from transformers import AutoModelForImageTextToText, AutoProcessor
+ImportError: cannot import name 'AutoModelForImageTextToText' from 'transformers' (/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/__init__.py)
+/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_baseline.py", line 263, in <module>
+    run_eval(args)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_baseline.py", line 86, in run_eval
+    adapter = create_adapter(
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 474, in create_adapter
+    return MODEL_REGISTRY[model_type].load(model_name, dtype, device)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 345, in load
+    from transformers import AutoModelForImageTextToText, AutoProcessor
+ImportError: cannot import name 'AutoModelForImageTextToText' from 'transformers' (/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/__init__.py)
+/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_baseline.py", line 263, in <module>
+    run_eval(args)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_baseline.py", line 86, in run_eval
+    adapter = create_adapter(
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 474, in create_adapter
+    return MODEL_REGISTRY[model_type].load(model_name, dtype, device)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 345, in load
+    from transformers import AutoModelForImageTextToText, AutoProcessor
+ImportError: cannot import name 'AutoModelForImageTextToText' from 'transformers' (/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/__init__.py)
+/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_baseline.py", line 263, in <module>
+    run_eval(args)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_baseline.py", line 86, in run_eval
+    adapter = create_adapter(
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 474, in create_adapter
+    return MODEL_REGISTRY[model_type].load(model_name, dtype, device)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 345, in load
+    from transformers import AutoModelForImageTextToText, AutoProcessor
+ImportError: cannot import name 'AutoModelForImageTextToText' from 'transformers' (/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/__init__.py)
+/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/er617036/.conda/envs/medProj/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_smc.py", line 358, in <module>
+    run_eval(args)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/eval_medical_smc.py", line 138, in run_eval
+    adapter = create_adapter(
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 474, in create_adapter
+    return MODEL_REGISTRY[model_type].load(model_name, dtype, device)
+  File "/lustre/fs1/home/er617036/medical/eval/medical/model_adapters.py", line 345, in load
+    from transformers import AutoModelForImageTextToText, AutoProcessor
+ImportError: cannot import name 'AutoModelForImageTextToText' from 'transformers' (/home/er617036/.conda/envs/medProj/lib/python3.10/site-packages/transformers/__init__.py)

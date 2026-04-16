@@ -1,0 +1,30 @@
+evc31
+/home/er617036/medical
+Wed Apr 15 21:04:41 EDT 2026
+=== Med-Gemma Power-SMC (CoT) ===
+Wed Apr 15 21:04:42 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading google/medgemma-4b-it ...
+Using adapter: MedGemmaAdapter
+=== Med-Gemma Greedy baseline (CoT) ===
+Wed Apr 15 21:06:27 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading google/medgemma-4b-it ...
+Using adapter: MedGemmaAdapter
+=== Med-Gemma Temperature baseline (CoT) ===
+Wed Apr 15 21:08:30 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading google/medgemma-4b-it ...
+Using adapter: MedGemmaAdapter
+=== Med-Gemma Greedy baseline (direct / no-CoT) ===
+Wed Apr 15 21:10:31 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading google/medgemma-4b-it ...
+Using adapter: MedGemmaAdapter
+=== Med-Gemma Power-SMC (direct / no-CoT) ===
+Wed Apr 15 21:12:33 EDT 2026
+Loaded 451 questions from data/vqa_rad/VQA_RAD_test.json (idx 0–450)
+Loading google/medgemma-4b-it ...
+Using adapter: MedGemmaAdapter
+=== All Med-Gemma evals done ===
+Wed Apr 15 21:14:35 EDT 2026
