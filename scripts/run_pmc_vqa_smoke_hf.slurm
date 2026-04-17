@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=02:00:00
+#SBATCH --time=06:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
 #SBATCH --mail-user=erick.castillo@ucf.edu
@@ -27,7 +27,9 @@ conda activate medProj
 # generate(), answer parsing, JSONL write) end-to-end on PMC-VQA before
 # launching the full run. HF backend is slower than vLLM because each rollout
 # is a separate generate() call (no shared prefill across the 32 samples).
-# Expected runtime: ~20–40 min on H100.
+# Expected runtime: ~60–120 min on H100. Earlier 2h estimate proved too
+# tight — Qwen often runs to max_new_tokens (512) per rollout, so 320 calls
+# can stretch past 2h. Bumped to 6h for safety margin.
 echo "=== HF baseline smoke test (10 questions, T=1.0, n=32) ==="
 
 python -m eval.medical.eval_medical_baseline \
