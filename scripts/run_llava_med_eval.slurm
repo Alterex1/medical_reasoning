@@ -38,27 +38,27 @@ python -m eval.medical.eval_medical_smc \
     --max_new_tokens $MAX_TOKENS
 
 # ── 2. Greedy baseline (full test set) ───────────────────────────────────────
-echo "=== LLaVA-Med Greedy baseline eval ==="
-date
-python -m eval.medical.eval_medical_baseline \
-    --dataset $DATASET \
-    --model $MODEL \
-    --output results/llava_med_baseline_greedy_full.jsonl \
-    --dtype $DTYPE \
-    --temperature 0.0 \
-    --max_new_tokens $MAX_TOKENS
+# echo "=== LLaVA-Med Greedy baseline eval ==="
+# date
+# python -m eval.medical.eval_medical_baseline \
+#     --dataset $DATASET \
+#     --model $MODEL \
+#     --output results/llava_med_baseline_greedy_full.jsonl \
+#     --dtype $DTYPE \
+#     --temperature 0.0 \
+#     --max_new_tokens $MAX_TOKENS
 
-# ── 3. Temperature baseline (full test set) ──────────────────────────────────
-echo "=== LLaVA-Med Temperature baseline eval ==="
-date
-python -m eval.medical.eval_medical_baseline \
-    --dataset $DATASET \
-    --model $MODEL \
-    --output results/llava_med_baseline_temp_full.jsonl \
-    --dtype $DTYPE \
-    --temperature 1.0 \
-    --n_rollouts 4 \
-    --max_new_tokens $MAX_TOKENS
+# # ── 3. Temperature baseline (full test set) ──────────────────────────────────
+# echo "=== LLaVA-Med Temperature baseline eval ==="
+# date
+# python -m eval.medical.eval_medical_baseline \
+#     --dataset $DATASET \
+#     --model $MODEL \
+#     --output results/llava_med_baseline_temp_full.jsonl \
+#     --dtype $DTYPE \
+#     --temperature 1.0 \
+#     --n_rollouts 4 \
+#     --max_new_tokens $MAX_TOKENS
 
-echo "=== All LLaVA-Med evals done ==="
-date
+# echo "=== All LLaVA-Med evals done ==="
+# date
