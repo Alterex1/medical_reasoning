@@ -17,6 +17,43 @@ from typing import Optional
 
 # ─── Answer extraction ────────────────────────────────────────────────────────
 
+def parse_mcq_answer(text: str) -> Optional[str]:
+    """
+    Extract a single-letter MCQ answer (A/B/C/D) from a model completion.
+
+    Strategy:
+      1. Look after an explicit "Answer:" marker and take the first A-D there.
+      2. Check the last few lines for a bare letter or "(A)"-style answer.
+      3. Fallback: first standalone A-D anywhere in the text.
+    """
+    if not text or not text.strip():
+        return None
+
+    # 1. After "Answer:" marker
+    m = re.search(r"(?:^|[\s\*])[Aa]nswer\s*[:\-]?\s*\*{0,2}\s*\(?\s*([ABCD])\b",
+                  text)
+    if m:
+        return m.group(1).upper()
+
+    # 2. Last few lines — a line that's just a letter or "(A)"
+    for line in reversed([l.strip() for l in text.strip().splitlines() if l.strip()][-4:]):
+        m = re.match(r"^\**\s*\(?\s*([ABCD])\s*\)?\s*[.)]?\s*\**\s*$", line)
+        if m:
+            return m.group(1).upper()
+
+    # 3. Bold-formatted final answer: **A** or **(A)**
+    m = re.search(r"\*\*\s*\(?([ABCD])\)?\s*\*\*", text)
+    if m:
+        return m.group(1).upper()
+
+    # 4. Fallback: first standalone A/B/C/D
+    m = re.search(r"(?:^|[\s(\[\"'])([ABCD])(?=[\s.,;:)\]\"'?!]|$)", text)
+    if m:
+        return m.group(1).upper()
+
+    return None
+
+
 def parse_medical_answer(text: str, ground_truth: str = None) -> Optional[str]:
     """
     Extract the final answer from a model completion.
@@ -195,16 +232,30 @@ def normalize_medical_answer(answer: str) -> str:
 
 # ─── Grading ──────────────────────────────────────────────────────────────────
 
-def grade_medical_answer(predicted: Optional[str], ground_truth: str) -> bool:
+def grade_medical_answer(predicted: Optional[str], ground_truth: str,
+                         question_type: Optional[str] = None) -> bool:
     """
     Grade a medical VQA answer against ground truth.
 
+    For MCQ (``question_type == "mcq"``): compare single letter A-D.
     For closed-ended (yes/no): exact match after normalization.
     For open-ended: normalized string match, with substring fallback
     for short ground truth answers.
     """
     if predicted is None:
         return False
+
+    # Multiple-choice: compare by letter.  ``predicted`` may be either a
+    # bare letter (already parsed by parse_mcq_answer) or raw completion
+    # text — handle both.
+    if question_type == "mcq":
+        gt_letter = (ground_truth or "").strip().upper()
+        if len(gt_letter) != 1 or gt_letter not in "ABCD":
+            return False
+        pred_letter = predicted.strip().upper()
+        if len(pred_letter) != 1 or pred_letter not in "ABCD":
+            pred_letter = parse_mcq_answer(predicted) or ""
+        return pred_letter == gt_letter
 
     pred_norm = normalize_medical_answer(predicted)
     gt_norm = normalize_medical_answer(ground_truth)

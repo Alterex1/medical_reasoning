@@ -45,6 +45,7 @@ from eval.medical.medical_grader import (
     grade_medical_answer,
     is_closed_ended,
     parse_medical_answer,
+    parse_mcq_answer,
 )
 from eval.medical.model_adapters import create_adapter, get_prompt
 from core.power_smc import PowerSMC, normalize_weights
@@ -177,7 +178,11 @@ def run_eval(args):
             gt         = data["answer"]
             question   = data["question"]
             image_path = data["image"]
-            q_type     = "closed" if is_closed_ended(gt) else "open"
+            # Prefer explicit question_type from the dataset (e.g. PMC-VQA
+            # sets "mcq"); fall back to closed/open inference for VQA-RAD.
+            q_type     = data.get("question_type")
+            if q_type not in ("mcq", "closed", "open"):
+                q_type = "closed" if is_closed_ended(gt) else "open"
 
             # ── build VLM inputs ─────────────────────────────────────────────
             prompt_text = get_prompt(question, cot=args.cot, question_type=q_type)
@@ -232,8 +237,11 @@ def run_eval(args):
                     smc_log_weight  = float(out.log_weights[chosen_i].item())
                     smc_norm_weight = float(normalize_weights(out.log_weights)[chosen_i].item())
 
-                    predicted = parse_medical_answer(completion, ground_truth=gt)
-                    correct   = grade_medical_answer(predicted, gt)
+                    if q_type == "mcq":
+                        predicted = parse_mcq_answer(completion)
+                    else:
+                        predicted = parse_medical_answer(completion, ground_truth=gt)
+                    correct = grade_medical_answer(predicted, gt, question_type=q_type)
 
                     samples_out.append({
                         "sample_idx":      r,

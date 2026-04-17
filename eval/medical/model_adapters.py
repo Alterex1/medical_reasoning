@@ -19,6 +19,16 @@ from PIL import Image
 
 # ─── Prompt templates (shared across all models) ────────────────────────────
 
+# System prompt adapted from ViTAR (arXiv 2510.10052, JLINEkai/ViTAR inference.py).
+# Their original prompt also required a JSON tool-calling format for their visual
+# cropping pipeline; we keep only the role-setting portion since our eval does not
+# use tools.
+MEDICAL_SYSTEM_PROMPT = (
+    "You are a medical image analysis assistant capable of analyzing medical "
+    "images and answering questions about them. Your goal is to answer questions "
+    "about medical images including modality, body part, and other medical details."
+)
+
 PROMPT_COT_CLOSED = (
     "Look at this medical image and answer the following question.\n"
     "Question: {question}\n"
@@ -39,15 +49,34 @@ PROMPT_DIRECT = (
     "Answer:"
 )
 
+# Multiple-choice (PMC-VQA).  The choices are already embedded in
+# ``{question}`` at dataset-prep time as "A) …\nB) …\nC) …\nD) …" lines.
+PROMPT_COT_MCQ = (
+    "Look at this medical image and answer the following multiple-choice question.\n"
+    "{question}\n"
+    "Please reason step by step about what you observe in the image, "
+    "then provide your final answer as a single letter (A, B, C, or D) "
+    "after 'Answer:'."
+)
+
+PROMPT_DIRECT_MCQ = (
+    "Look at this medical image and answer the following multiple-choice question.\n"
+    "{question}\n"
+    "Answer with a single letter (A, B, C, or D).\n"
+    "Answer:"
+)
+
 
 def get_prompt(question: str, cot: bool = True, question_type: str = "open") -> str:
     """Select and format the prompt text (model-agnostic)."""
+    if question_type == "mcq":
+        template = PROMPT_COT_MCQ if cot else PROMPT_DIRECT_MCQ
+        return template.format(question=question)
     if not cot:
         return PROMPT_DIRECT.format(question=question)
-    elif question_type == "closed":
+    if question_type == "closed":
         return PROMPT_COT_CLOSED.format(question=question)
-    else:
-        return PROMPT_COT_OPEN.format(question=question)
+    return PROMPT_COT_OPEN.format(question=question)
 
 
 # ─── Base adapter ────────────────────────────────────────────────────────────
@@ -138,12 +167,16 @@ class QwenVLAdapter(VLMAdapter):
         """Build Qwen2.5-VL chat message format."""
         return [
             {
+                "role": "system",
+                "content": [{"type": "text", "text": MEDICAL_SYSTEM_PROMPT}],
+            },
+            {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": f"file://{os.path.abspath(image_path)}"},
                     {"type": "text", "text": prompt_text},
                 ],
-            }
+            },
         ]
 
     def _process(self, image_path: str, prompt_text: str):
@@ -255,6 +288,9 @@ class LlavaMedAdapter(VLMAdapter):
         from llava.constants import DEFAULT_IMAGE_TOKEN
 
         conv = conv_templates["mistral_instruct"].copy()
+        # mistral_instruct has an empty system string by default; inject the
+        # ViTAR-adapted role-setting prompt so the model knows its task.
+        conv.system = MEDICAL_SYSTEM_PROMPT
         # Image token goes at the start of the user turn.
         user_msg = DEFAULT_IMAGE_TOKEN + "\n" + prompt_text
         conv.append_message(conv.roles[0], user_msg)
@@ -330,8 +366,8 @@ class MedGemmaAdapter(VLMAdapter):
       - generate() returns the **full** sequence (prompt + new tokens), so
         the eval script's ``generated_ids[0, prompt_len:]`` trim is correct.
       - Recommended dtype is bfloat16.
-      - Supports a system message; we use "You are an expert radiologist."
-        to match the model card's example.
+      - Supports a system message; we use MEDICAL_SYSTEM_PROMPT (adapted
+        from ViTAR) so all adapters share the same role-setting prompt.
     """
 
     def __init__(self, model, processor, device):
@@ -377,7 +413,7 @@ class MedGemmaAdapter(VLMAdapter):
         return [
             {
                 "role": "system",
-                "content": [{"type": "text", "text": "You are an expert radiologist."}],
+                "content": [{"type": "text", "text": MEDICAL_SYSTEM_PROMPT}],
             },
             {
                 "role": "user",
