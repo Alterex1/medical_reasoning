@@ -9,8 +9,12 @@
 #SBATCH --time=02:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
+#SBATCH --mail-user=erick.castillo@ucf.edu
+#SBATCH --mail-type=BEGIN,END,FAIL
 
-hostname; pwd; date
+START_TS=$(date +%s)
+echo "=== Job started: $(date) ==="
+hostname; pwd
 
 # ── Environment ───────────────────────────────────────────────────────────────
 module restore
@@ -25,7 +29,6 @@ conda activate medProj
 # is a separate generate() call (no shared prefill across the 32 samples).
 # Expected runtime: ~20–40 min on H100.
 echo "=== HF baseline smoke test (10 questions, T=1.0, n=32) ==="
-date
 
 python -m eval.medical.eval_medical_baseline \
     --dataset data/pmc_vqa/PMC_VQA_test_clean.json \
@@ -38,7 +41,6 @@ python -m eval.medical.eval_medical_baseline \
     --max_examples 10
 
 echo "=== Smoke test done ==="
-date
 
 echo ""
 echo "Quick sanity check — accuracy + per-question correctness:"
@@ -58,3 +60,10 @@ for line in path.read_text().splitlines():
           f"correct={b['n_correct']}/{b['n_rollouts']}  "
           f"pass@1={b['pass_at_k']['1']:.2f}")
 PY
+
+END_TS=$(date +%s)
+echo ""
+echo "=== Job ended: $(date) ==="
+ELAPSED=$((END_TS - START_TS))
+printf "=== Total runtime: %dh %dm %ds ===\n" \
+    $((ELAPSED / 3600)) $(((ELAPSED % 3600) / 60)) $((ELAPSED % 60))

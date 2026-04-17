@@ -9,8 +9,12 @@
 #SBATCH --time=1-00:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
+#SBATCH --mail-user=erick.castillo@ucf.edu
+#SBATCH --mail-type=BEGIN,END,FAIL
 
-hostname; pwd; date
+START_TS=$(date +%s)
+echo "=== Job started: $(date) ==="
+hostname; pwd
 
 # ── Environment ───────────────────────────────────────────────────────────────
 module restore
@@ -22,7 +26,6 @@ conda activate medProj-vllm
 
 # ── Run: PMC-VQA baseline with vLLM, T=1.0, 32 rollouts/question ─────────────
 echo "=== vLLM baseline eval (Qwen2.5-VL, T=1.0, n=32) ==="
-date
 
 python -m eval.medical.eval_medical_baseline_vllm \
     --dataset data/pmc_vqa/PMC_VQA_test_clean.json \
@@ -36,5 +39,9 @@ python -m eval.medical.eval_medical_baseline_vllm \
     --gpu_memory_utilization 0.9 \
     --tensor_parallel_size 1
 
-echo "=== Done ==="
-date
+END_TS=$(date +%s)
+echo ""
+echo "=== Job ended: $(date) ==="
+ELAPSED=$((END_TS - START_TS))
+printf "=== Total runtime: %dh %dm %ds ===\n" \
+    $((ELAPSED / 3600)) $(((ELAPSED % 3600) / 60)) $((ELAPSED % 60))
