@@ -37,6 +37,7 @@ Output
 import argparse
 import json
 import os
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -47,6 +48,12 @@ from tqdm import tqdm
 
 
 REPO_ID = "xmcmic/PMC-VQA"
+
+# PMC-VQA's "Choice A" / "Choice B" / ... CSV columns sometimes already include
+# the letter prefix (e.g. "A:X-ray", "B: Magnetic resonance imaging"). Strip
+# any leading "<letter><sep>" so the formatted prompt doesn't end up with
+# duplicated letters like "A) A:X-ray".
+_CHOICE_PREFIX_RE = re.compile(r"^\s*[A-Da-d]\s*[:.)\-]\s*")
 
 # Files available in the HF repo.  v1 (images.zip, 18.9 GB) pairs with
 # train.csv / test.csv / test_clean.csv.  v2 (images_2.zip, 2.21 GB) pairs
@@ -63,11 +70,16 @@ VERSIONS = {
 }
 
 
+def _clean_choice(text: str) -> str:
+    """Strip a duplicate leading letter prefix from a CSV choice value."""
+    return _CHOICE_PREFIX_RE.sub("", text).strip()
+
+
 def _format_question(q: str, choices: dict) -> str:
     """Embed A/B/C/D choices into the question text."""
     lines = [q.strip()]
     for letter in ("A", "B", "C", "D"):
-        text = choices.get(letter, "").strip()
+        text = _clean_choice(choices.get(letter, ""))
         lines.append(f"{letter}) {text}")
     return "\n".join(lines)
 
@@ -153,7 +165,8 @@ def download(version: int, split: str, out_root: Path, extract: bool) -> None:
             continue
 
         choices = {
-            L: str(row.get(f"Choice {L}", "")).strip() for L in ("A", "B", "C", "D")
+            L: _clean_choice(str(row.get(f"Choice {L}", "")))
+            for L in ("A", "B", "C", "D")
         }
         letter = _resolve_letter(row)
         if letter is None:
