@@ -74,6 +74,7 @@ safetensors==0.7.0
 shellingham==1.5.4
 six==1.17.0
 sympy==1.14.0
+tiktoken==0.8.0
 tokenizers==0.22.2
 torch==2.10.0+cu126
 torchaudio==2.10.0+cu126
