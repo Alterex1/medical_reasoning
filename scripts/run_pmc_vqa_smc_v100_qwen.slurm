@@ -13,8 +13,12 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 
 # Power-SMC (CoT) on PMC-VQA test_clean — first 100 questions, Qwen2.5-VL.
-# V100 fallback (32GB, FP16, no flash-attn). Submitted as a standalone
-# job per model so each fits in the 24h slurm limit.
+# V100 fallback (32GB, no flash-attn). Standalone per-model job.
+#
+# BF16 (Qwen's training dtype) for cross-model comparability with the
+# Med-Gemma run. Note: V100 has no BF16 tensor cores, so this runs via
+# emulation — slower than FP16 but matches the dtype used by the other
+# V100 runs.
 
 START_TS=$(date +%s)
 echo "=== Job started: $(date) ==="
@@ -29,7 +33,7 @@ python -m eval.medical.eval_medical_smc \
     --dataset data/pmc_vqa/PMC_VQA_test_clean.json \
     --model Qwen/Qwen2.5-VL-7B-Instruct \
     --output results/pmc_vqa_qwen_power_smc_cot_v100.jsonl \
-    --dtype float16 \
+    --dtype bfloat16 \
     --alpha 4.0 \
     --n_particles 16 \
     --n_rollouts 4 \

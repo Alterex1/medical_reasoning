@@ -257,6 +257,15 @@ class LlavaMedAdapter(VLMAdapter):
         # Cast to requested dtype after loading
         model = model.to(dtype=dtype).eval()
 
+        # Surface the attention impl LLaVA actually picked (it doesn't log
+        # this itself the way QwenVL/MedGemma adapters do). Reads from the
+        # base LM's config, which transformers populates during from_pretrained.
+        attn_impl = getattr(
+            model.config, "_attn_implementation",
+            getattr(model.config, "attn_implementation", "unknown"),
+        )
+        print(f"Using attention implementation: {attn_impl}")
+
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
 
