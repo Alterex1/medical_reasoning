@@ -25,3 +25,6 @@ reasoning-with-sampling/
 data/vqa_rad/*.json
 data/pmc_vqa/images/
 data/pmc_vqa/*.json
+
+# etc
+diagrams/
