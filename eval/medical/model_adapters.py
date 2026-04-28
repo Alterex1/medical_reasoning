@@ -256,6 +256,20 @@ class LlavaMedAdapter(VLMAdapter):
                 "  pip install git+https://github.com/microsoft/LLaVA-Med.git"
             )
 
+        # Attention implementation: prefer flash_attention_2 if installed,
+        # transformers will silently downgrade on hardware that doesn't
+        # support it (e.g. V100 sm_70). Passed through llava's
+        # load_pretrained_model via **kwargs into LlavaMistralForCausalLM.
+        # from_pretrained — works only AFTER builder.py has been patched
+        # to drop the hardcoded `use_flash_attention_2=False` (see
+        # scripts/setup_env.sh). Without that patch the kwarg path is
+        # blocked by the duplicate-kwarg / unknown-kwarg error.
+        try:
+            import flash_attn  # noqa: F401
+            attn_impl = "flash_attention_2"
+        except ImportError:
+            attn_impl = "sdpa"
+
         llava_model_name = get_model_name_from_path(model_name)
         tokenizer, model, image_processor, context_len = load_pretrained_model(
             model_path=model_name,
@@ -263,21 +277,20 @@ class LlavaMedAdapter(VLMAdapter):
             model_name=llava_model_name,
             device_map="auto",
             device=device,
+            attn_implementation=attn_impl,
         )
         # Cast to requested dtype after loading
         model = model.to(dtype=dtype).eval()
 
-        # Surface the attention impl LLaVA actually picked (its loader
-        # doesn't log this itself). LLaVA's load_pretrained_model never
-        # passes attn_implementation, so the model uses transformers'
-        # default for the LlavaMistral class — almost always SDPA.
-        # No "requested" qualifier here because we don't make a request.
+        # Report what transformers actually resolved to (post-load reality
+        # — on V100/sm_70 the runtime check downgrades flash_attention_2
+        # to sdpa silently, on Ampere+ it sticks).
         actual_impl = getattr(
             model.config, "_attn_implementation",
             getattr(model.config, "attn_implementation", "unknown"),
         )
         print(f"Using attention implementation: {actual_impl} "
-              f"(LLaVA loader does not request a specific impl)")
+              f"(requested: {attn_impl})")
 
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
