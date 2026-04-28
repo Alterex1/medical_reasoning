@@ -15,12 +15,15 @@
 # Power-SMC (CoT) on PMC-VQA test_clean — first 100 questions, Med-Gemma 4B.
 # V100 fallback. Standalone per-model job.
 #
-# Gemma was trained in BF16 and underflows badly in FP16 — triggers
+# Gemma was trained in BF16 and underflows in FP16 — triggers
 # `torch.multinomial` device-side asserts when the SMC softmax produces
-# NaN/Inf/zero probabilities. V100 has no BF16 tensor cores, so we
-# fall back to FP32. The 4B model is small enough that FP32 still fits
-# in 32GB VRAM (~16GB weights + activations + KV cache for 16 particles).
-# Slower than FP16 but numerically stable.
+# NaN/Inf/zero probabilities. V100 has no BF16 tensor cores, but BF16
+# operations still run via emulation, and BF16's wider exponent range
+# avoids the underflow even without tensor-core acceleration.
+# Empirically confirmed: BF16 runs Med-Gemma SMC without crashing on V100.
+# BF16 is also Gemma's training dtype, so it's the numerically natural
+# choice. Slower per-op than FP16 but stable; smaller memory footprint
+# than FP32 (~8GB vs 16GB weights).
 
 START_TS=$(date +%s)
 echo "=== Job started: $(date) ==="
@@ -35,7 +38,7 @@ python -m eval.medical.eval_medical_smc \
     --dataset data/pmc_vqa/PMC_VQA_test_clean.json \
     --model google/medgemma-4b-it \
     --output results/pmc_vqa_medgemma_power_smc_cot_v100.jsonl \
-    --dtype float32 \
+    --dtype bfloat16 \
     --alpha 4.0 \
     --n_particles 16 \
     --n_rollouts 4 \
