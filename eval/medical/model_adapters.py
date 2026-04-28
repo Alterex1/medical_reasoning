@@ -135,13 +135,14 @@ class QwenVLAdapter(VLMAdapter):
     def load(cls, model_name: str, dtype: torch.dtype, device: str) -> "QwenVLAdapter":
         from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
-        # Attention implementation: flash_attention_2 > sdpa
+        # Attention implementation: prefer flash_attention_2 if installed,
+        # transformers will silently downgrade to SDPA on hardware that
+        # doesn't support it (e.g. V100 sm_70).
         try:
             import flash_attn  # noqa: F401
             attn_impl = "flash_attention_2"
         except ImportError:
             attn_impl = "sdpa"
-        print(f"Using attention implementation: {attn_impl}")
 
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_name,
@@ -150,6 +151,15 @@ class QwenVLAdapter(VLMAdapter):
             device_map="auto",
             trust_remote_code=True,
         ).eval()
+        # Report what transformers actually resolved to (post-load reality,
+        # not pre-load intent — these can differ when FA2 is rejected by
+        # the runtime check on older GPUs).
+        actual_impl = getattr(
+            model.config, "_attn_implementation",
+            getattr(model.config, "attn_implementation", "unknown"),
+        )
+        print(f"Using attention implementation: {actual_impl} "
+              f"(requested: {attn_impl})")
 
         processor = AutoProcessor.from_pretrained(
             model_name,
@@ -257,14 +267,17 @@ class LlavaMedAdapter(VLMAdapter):
         # Cast to requested dtype after loading
         model = model.to(dtype=dtype).eval()
 
-        # Surface the attention impl LLaVA actually picked (it doesn't log
-        # this itself the way QwenVL/MedGemma adapters do). Reads from the
-        # base LM's config, which transformers populates during from_pretrained.
-        attn_impl = getattr(
+        # Surface the attention impl LLaVA actually picked (its loader
+        # doesn't log this itself). LLaVA's load_pretrained_model never
+        # passes attn_implementation, so the model uses transformers'
+        # default for the LlavaMistral class — almost always SDPA.
+        # No "requested" qualifier here because we don't make a request.
+        actual_impl = getattr(
             model.config, "_attn_implementation",
             getattr(model.config, "attn_implementation", "unknown"),
         )
-        print(f"Using attention implementation: {attn_impl}")
+        print(f"Using attention implementation: {actual_impl} "
+              f"(LLaVA loader does not request a specific impl)")
 
         if tokenizer.pad_token_id is None:
             tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -389,13 +402,14 @@ class MedGemmaAdapter(VLMAdapter):
     def load(cls, model_name: str, dtype: torch.dtype, device: str) -> "MedGemmaAdapter":
         from transformers import AutoModelForImageTextToText, AutoProcessor
 
-        # Attention implementation
+        # Attention implementation: prefer flash_attention_2 if installed,
+        # transformers will silently downgrade on hardware that doesn't
+        # support it (e.g. V100 sm_70).
         try:
             import flash_attn  # noqa: F401
             attn_impl = "flash_attention_2"
         except ImportError:
             attn_impl = "sdpa"
-        print(f"Using attention implementation: {attn_impl}")
 
         model = AutoModelForImageTextToText.from_pretrained(
             model_name,
@@ -403,6 +417,13 @@ class MedGemmaAdapter(VLMAdapter):
             attn_implementation=attn_impl,
             device_map="auto",
         ).eval()
+        # Report post-load reality, not pre-load intent.
+        actual_impl = getattr(
+            model.config, "_attn_implementation",
+            getattr(model.config, "attn_implementation", "unknown"),
+        )
+        print(f"Using attention implementation: {actual_impl} "
+              f"(requested: {attn_impl})")
 
         processor = AutoProcessor.from_pretrained(model_name)
 
