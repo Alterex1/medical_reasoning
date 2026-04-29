@@ -61,7 +61,8 @@ python -m eval.medical.eval_medical_smc \
     --n_rollouts $N_ROLLOUTS \
     --prompt_batch_size $PROMPT_BATCH \
     --max_new_tokens $MAX_TOKENS \
-    --max_examples $MAX_EXAMPLES
+    --max_examples $MAX_EXAMPLES \
+    --resume
 
 # ── 2. LLaVA-Med ────────────────────────────────────────────────────────────
 echo ""
@@ -77,7 +78,8 @@ python -m eval.medical.eval_medical_smc \
     --n_rollouts $N_ROLLOUTS \
     --prompt_batch_size $PROMPT_BATCH \
     --max_new_tokens $MAX_TOKENS \
-    --max_examples $MAX_EXAMPLES
+    --max_examples $MAX_EXAMPLES \
+    --resume
 
 # ── 3. Med-Gemma ────────────────────────────────────────────────────────────
 echo ""
@@ -93,7 +95,8 @@ python -m eval.medical.eval_medical_smc \
     --n_rollouts $N_ROLLOUTS \
     --prompt_batch_size $PROMPT_BATCH \
     --max_new_tokens $MAX_TOKENS \
-    --max_examples $MAX_EXAMPLES
+    --max_examples $MAX_EXAMPLES \
+    --resume
 
 END_TS=$(date +%s)
 echo ""

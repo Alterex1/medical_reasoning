@@ -39,7 +39,8 @@ python -m eval.medical.eval_medical_baseline \
     --temperature 1.0 \
     --n_rollouts 64 \
     --max_new_tokens 512 \
-    --max_examples 100
+    --max_examples 100 \
+    --resume
 
 END_TS=$(date +%s)
 echo ""
