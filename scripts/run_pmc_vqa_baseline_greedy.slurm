@@ -4,8 +4,8 @@
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
 #SBATCH --time=08:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
@@ -16,6 +16,11 @@
 # Greedy baseline (CoT, T=0.0, 1 rollout) on PMC-VQA test_clean, first 100
 # questions, all three models sequentially. Greedy is fast enough that one
 # job covers all three (~30-60 min/model on H100 with FA2).
+
+# Exit immediately on any command failure (otherwise a python crash
+# still lets the script's trailing `printf` line run, and SLURM logs
+# the job as COMPLETED 0:0 — silent failure).
+set -e
 
 START_TS=$(date +%s)
 echo "=== Job started: $(date) ==="

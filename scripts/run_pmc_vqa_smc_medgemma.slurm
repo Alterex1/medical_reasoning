@@ -4,8 +4,8 @@
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
 #SBATCH --time=1-00:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
@@ -16,6 +16,11 @@
 # Power-SMC (CoT) on PMC-VQA test_clean, first 100 questions.
 # Model: Med-Gemma
 # No baselines, no direct-prompt variants.
+
+# Exit immediately on any command failure (otherwise a python crash
+# still lets the script's trailing `printf` line run, and SLURM logs
+# the job as COMPLETED 0:0 — silent failure that bit us on evc40).
+set -e
 
 START_TS=$(date +%s)
 echo "=== Job started: $(date) ==="

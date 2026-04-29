@@ -4,8 +4,8 @@
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
 #SBATCH --time=1-00:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
@@ -17,6 +17,11 @@
 # LLaVA-Med produces shorter completions (~50-100 tokens typical) so this
 # tends to finish faster than Qwen at the same n_rollouts.
 # Expected: ~6-9 h on H100 with FA2.
+
+# Exit immediately on any command failure (otherwise a python crash
+# still lets the script's trailing `printf` line run, and SLURM logs
+# the job as COMPLETED 0:0 — silent failure).
+set -e
 
 START_TS=$(date +%s)
 echo "=== Job started: $(date) ==="
