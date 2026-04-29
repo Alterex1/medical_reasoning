@@ -357,7 +357,21 @@ class PowerSMC:
                 "Cannot determine eos_token_id. "
                 "Pass a GenerationConfig or a tokenizer with eos_token_id set."
             )
-        self.eos_id: int = int(eos[0]) if isinstance(eos, (list, tuple)) else int(eos)
+        # Some models declare multiple stop tokens (e.g. Gemma uses both
+        # `<eos>` and `<end_of_turn>`). Store ALL of them — the SMC loop
+        # checks membership when marking a particle done, so any stop token
+        # actually halts decoding instead of being silently ignored. Without
+        # this, Gemma-family models never terminate and run to max_new_tokens.
+        if isinstance(eos, (list, tuple)):
+            self.eos_ids: list[int] = [int(e) for e in eos]
+        else:
+            self.eos_ids = [int(eos)]
+        # Canonical single stop token used when force-emitting EOS on done
+        # particles (line below: scaled_logits[done, self.eos_id] = 0.0).
+        # Any of the model's stop tokens is valid here; we pick the first.
+        self.eos_id: int = self.eos_ids[0]
+        self._eos_ids_tensor = torch.tensor(self.eos_ids, dtype=torch.long,
+                                            device=self.device)
 
         # OPT-2: ramp enabled for any alpha != 1 (covers both alpha > 1 and alpha < 1)
         if ramp_steps > 0 and n_ramp_stages > 0 and alpha != 1.0:
@@ -468,9 +482,10 @@ class PowerSMC:
                 log_w        += torch.logsumexp(alpha_cur * lp, dim=-1)
                 prefix_log_p += lp.gather(1, tok_idx).squeeze(1)
 
-            # STEP 3 — Record tokens; mark EOS
+            # STEP 3 — Record tokens; mark EOS (any of the model's stop tokens)
             generated[:, t - 1] = next_tokens
-            newly_done              = (~done) & (next_tokens == self.eos_id)
+            is_eos                  = torch.isin(next_tokens, self._eos_ids_tensor)
+            newly_done              = (~done) & is_eos
             gen_lengths[newly_done] = t
             done                    = done | newly_done
 
@@ -657,9 +672,10 @@ class PowerSMC:
                 log_w        += torch.logsumexp(alpha_cur * lp, dim=-1)
                 prefix_log_p += lp.gather(1, tok_idx).squeeze(1)
 
-            # STEP 3
+            # STEP 3 — mark EOS (any of the model's stop tokens)
             generated[:, t - 1]     = next_tokens
-            newly_done              = (~done) & (next_tokens == self.eos_id)
+            is_eos                  = torch.isin(next_tokens, self._eos_ids_tensor)
+            newly_done              = (~done) & is_eos
             gen_lengths[newly_done] = t
             done                    = done | newly_done
 
@@ -781,7 +797,9 @@ class PowerSMC:
         I_map      = int(out.log_weights.argmax().item())
         prompt_len = input_ids.shape[-1]
         map_gen    = out.all_sequences[I_map, prompt_len:]   # works now (BUG-E fixed)
-        eos_pos    = (map_gen == self.eos_id).nonzero(as_tuple=True)[0]
+        # Trim at first occurrence of any of the model's stop tokens
+        is_eos     = torch.isin(map_gen, self._eos_ids_tensor)
+        eos_pos    = is_eos.nonzero(as_tuple=True)[0]
         trim       = int(eos_pos[0].item()) + 1 if len(eos_pos) > 0 else len(map_gen)
         map_seq    = torch.cat([input_ids[0], map_gen[:trim]], dim=0).unsqueeze(0)
         return PowerSMCOutput(

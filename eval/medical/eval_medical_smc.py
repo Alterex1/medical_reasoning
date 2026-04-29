@@ -194,7 +194,10 @@ def run_eval(args):
             prefill_kwargs = vlm_inputs["prefill_kwargs"]
 
             samples_out = []
-            eos_id = adapter.tokenizer.eos_token_id
+            # Use the sampler's full stop-token set (covers Gemma's
+            # <eos>+<end_of_turn>, Llama's [<eos>, <eot_id>], etc.) so the
+            # trim logic matches what the SMC loop actually halts on.
+            eos_ids_set = set(sampler.eos_ids)
 
             for chunk_start in tqdm(range(0, args.n_rollouts, M), leave=False,
                                     desc=f"  idx={abs_idx} chunks"):
@@ -220,8 +223,12 @@ def run_eval(args):
                     chosen_i   = out.chosen_idx
                     gen_tokens = out.sequences[0, prompt_len:]
 
-                    # Trim at first EOS
-                    eos_pos = (gen_tokens == eos_id).nonzero(as_tuple=True)[0]
+                    # Trim at first occurrence of any stop token
+                    eos_mask = torch.tensor(
+                        [int(t) in eos_ids_set for t in gen_tokens.cpu().tolist()],
+                        dtype=torch.bool,
+                    )
+                    eos_pos = eos_mask.nonzero(as_tuple=True)[0]
                     if len(eos_pos) > 0:
                         gen_tokens    = gen_tokens[:int(eos_pos[0].item()) + 1]
                         finish_reason = "stop"

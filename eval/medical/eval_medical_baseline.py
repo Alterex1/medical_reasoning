@@ -147,9 +147,18 @@ def run_eval(args):
                     gen_tokens.cpu().tolist(), skip_special_tokens=True
                 )
 
-                # Check finish reason
-                eos_id = adapter.tokenizer.eos_token_id
-                if n_tokens > 0 and int(gen_tokens[-1].item()) == eos_id:
+                # Check finish reason — match against the model's full stop
+                # token set, not just tokenizer.eos_token_id (which is a
+                # single int and misses e.g. Gemma's <end_of_turn>).
+                gen_cfg_eos = getattr(model.generation_config, "eos_token_id", None)
+                if gen_cfg_eos is None:
+                    gen_cfg_eos = adapter.tokenizer.eos_token_id
+                eos_ids_set = set(
+                    [int(e) for e in gen_cfg_eos]
+                    if isinstance(gen_cfg_eos, (list, tuple))
+                    else [int(gen_cfg_eos)]
+                )
+                if n_tokens > 0 and int(gen_tokens[-1].item()) in eos_ids_set:
                     finish_reason = "stop"
                 else:
                     finish_reason = "length"
