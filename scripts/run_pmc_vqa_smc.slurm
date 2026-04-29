@@ -33,10 +33,12 @@ DTYPE="bfloat16"
 MAX_TOKENS=512
 MAX_EXAMPLES=100
 
-# Power-SMC config matches prior VQA-RAD runs (alpha=4, N=16, kappa=0.5,
-# n_rollouts=4) so PMC-VQA results are directly comparable.
+# Power-SMC config: alpha=4, N=32, kappa=0.5, n_rollouts=4.
+# Bumped N from 16 -> 32 to give SMC more particles to steer with on
+# PMC-VQA's MCQ format (more parallel reasoning paths per rollout).
+# Wall-clock cost roughly doubles per rollout vs N=16.
 ALPHA=4.0
-N_PARTICLES=16
+N_PARTICLES=32
 N_ROLLOUTS=4
 PROMPT_BATCH=1
 
