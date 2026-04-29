@@ -245,7 +245,8 @@ def run_eval(args):
                     smc_norm_weight = float(normalize_weights(out.log_weights)[chosen_i].item())
 
                     if q_type == "mcq":
-                        predicted = parse_mcq_answer(completion)
+                        predicted = parse_mcq_answer(completion,
+                                                     choices=data.get("choices"))
                     else:
                         predicted = parse_medical_answer(completion, ground_truth=gt)
                     correct = grade_medical_answer(predicted, gt, question_type=q_type)
@@ -285,6 +286,8 @@ def run_eval(args):
                 "image":        image_path,
                 "ground_truth": gt,
                 "question_type": q_type,
+                # Carry choices through so the fuzzy MCQ-fallback parser
+                "choices":      data.get("choices"),
                 "methods": {
                     "power_smc": {
                         "samples":    samples_out,

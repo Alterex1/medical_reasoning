@@ -188,7 +188,8 @@ def run_eval(args):
                 finish_reason = comp.finish_reason or "unknown"
 
                 if q_type == "mcq":
-                    predicted = parse_mcq_answer(completion)
+                    predicted = parse_mcq_answer(completion,
+                                                 choices=data.get("choices"))
                 else:
                     predicted = parse_medical_answer(completion, ground_truth=gt)
                 correct = grade_medical_answer(predicted, gt, question_type=q_type)
@@ -220,6 +221,7 @@ def run_eval(args):
                 "image":        image_path,
                 "ground_truth": gt,
                 "question_type": q_type,
+                "choices":      data.get("choices"),
                 "methods": {
                     "baseline": {
                         "samples":    samples_out,

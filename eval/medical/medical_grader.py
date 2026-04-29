@@ -17,14 +17,24 @@ from typing import Optional
 
 # ─── Answer extraction ────────────────────────────────────────────────────────
 
-def parse_mcq_answer(text: str) -> Optional[str]:
+def parse_mcq_answer(text: str, choices: Optional[dict] = None) -> Optional[str]:
     """
     Extract a single-letter MCQ answer (A/B/C/D) from a model completion.
 
     Strategy:
       1. Look after an explicit "Answer:" marker and take the first A-D there.
       2. Check the last few lines for a bare letter or "(A)"-style answer.
-      3. Fallback: first standalone A-D anywhere in the text.
+      3. Bold-formatted final answer: **A** or **(A)**
+      4. Fallback: first standalone A-D anywhere in the text.
+      5. (Optional) If still None and ``choices`` was provided, fuzzy-match
+         the completion text against the four choice strings — needed for
+         models like LLaVA-Med that state the answer textually
+         ("magnetic resonance imaging") without picking a letter.
+
+    Args:
+        text:    Model completion (free-form).
+        choices: Optional dict like ``{"A": "MRI", "B": "CT", ...}``. When
+                 provided, enables the textual-match fallback.
     """
     if not text or not text.strip():
         return None
@@ -51,7 +61,70 @@ def parse_mcq_answer(text: str) -> Optional[str]:
     if m:
         return m.group(1).upper()
 
+    # 5. Textual-match fallback (for free-text answers without a letter)
+    if choices:
+        return _fuzzy_match_choice(text, choices)
+
     return None
+
+
+def _normalize_for_match(s: str) -> str:
+    """Lowercase, strip punctuation, collapse whitespace."""
+    if not s:
+        return ""
+    s = s.lower()
+    s = re.sub(r"[^\w\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _fuzzy_match_choice(text: str, choices: dict) -> Optional[str]:
+    """
+    Match a free-text completion to one of the lettered choices by content
+    overlap. Returns the letter (A/B/C/D) or None if no choice matches
+    confidently.
+
+    Strategy:
+      - Normalize text and each choice (lowercase, strip punctuation).
+      - For each choice, score by longest substring match (choice in text).
+      - Pick the choice with the longest match.
+      - Reject ambiguous cases where two choices match within 3 characters
+        of each other — better to return None than guess.
+    """
+    if not text or not choices:
+        return None
+
+    text_norm = _normalize_for_match(text)
+    if not text_norm:
+        return None
+
+    # Collect (letter, match_length) for each choice that's a substring
+    # of the completion.
+    matches: list[tuple[str, int]] = []
+    for letter, choice_text in choices.items():
+        if not choice_text:
+            continue
+        choice_norm = _normalize_for_match(choice_text)
+        # Skip very short choices — too ambiguous (would match anywhere)
+        if len(choice_norm) < 2:
+            continue
+        if choice_norm in text_norm:
+            matches.append((letter, len(choice_norm)))
+
+    if not matches:
+        return None
+
+    # Longest match wins (most specific); ties broken by letter order
+    matches.sort(key=lambda x: (-x[1], x[0]))
+    best_letter, best_len = matches[0]
+
+    # Reject ambiguous: if a different letter matched almost as long
+    if len(matches) > 1:
+        second_letter, second_len = matches[1]
+        if second_letter != best_letter and (best_len - second_len) < 3:
+            return None
+
+    return best_letter
 
 
 def parse_medical_answer(text: str, ground_truth: str = None) -> Optional[str]:
