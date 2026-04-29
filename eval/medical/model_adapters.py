@@ -51,18 +51,26 @@ PROMPT_DIRECT = (
 
 # Multiple-choice (PMC-VQA).  The choices are already embedded in
 # ``{question}`` at dataset-prep time as "A) …\nB) …\nC) …\nD) …" lines.
+#
+# The "do NOT write the answer text — only the letter" instruction targets
+# models like LLaVA-Med that otherwise produce free-text answers
+# ("magnetic resonance imaging") instead of letters. The grader has a
+# fuzzy fallback that maps free-text back to letters, but the stricter
+# prompt reduces the rate of falling back to that path in the first place.
 PROMPT_COT_MCQ = (
     "Look at this medical image and answer the following multiple-choice question.\n"
     "{question}\n"
-    "Please reason step by step about what you observe in the image, "
-    "then provide your final answer as a single letter (A, B, C, or D) "
-    "after 'Answer:'."
+    "Reason step by step about what you observe in the image. "
+    "End your response with a line in EXACTLY this format:\n"
+    "Answer: X\n"
+    "where X is one of A, B, C, or D — just the letter, not the answer text."
 )
 
 PROMPT_DIRECT_MCQ = (
     "Look at this medical image and answer the following multiple-choice question.\n"
     "{question}\n"
-    "Answer with a single letter (A, B, C, or D).\n"
+    "Respond with EXACTLY one letter (A, B, C, or D) — just the letter, "
+    "not the answer text.\n"
     "Answer:"
 )
 
