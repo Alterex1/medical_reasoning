@@ -9,6 +9,7 @@
 #SBATCH --time=1-00:00:00
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
+#SBATCH --exclude=evc40,evc39
 #SBATCH --mail-user=erick.castillo@ucf.edu
 #SBATCH --mail-type=BEGIN,END,FAIL
 
