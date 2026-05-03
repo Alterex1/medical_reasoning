@@ -79,7 +79,10 @@ bash scripts/setup_env.sh
 
 That script installs the base requirements, updates `transformers` for
 MedGemma support, installs LLaVA-Med without downgrading dependencies, and
-patches LLaVA-Med's builder for the expected local environment.
+patches LLaVA-Med's builder for the expected local environment. By default,
+`setup_env.sh` removes LLaVA-Med's old `use_flash_attention_2` argument so
+that LLaVA-Med can run with the standard PyTorch SDPA attention path. This is
+the safe default and is the path to use on V100.
 
 Optional FlashAttention 2:
 
@@ -87,9 +90,22 @@ Optional FlashAttention 2:
 pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.0/flash_attn-2.8.3+cu126torch2.10-cp310-cp310-linux_x86_64.whl
 ```
 
-This pre-built wheel matches CUDA 12.6, PyTorch 2.10, and Python 3.10. If
-FlashAttention 2 is unavailable or unsupported, the code falls back to PyTorch
-SDPA. Do not use FlashAttention 2 on V100.
+This pre-built wheel matches CUDA 12.6, PyTorch 2.10, and Python 3.10. On
+Ampere-or-newer GPUs such as A100, H100, or H200, run the optional LLaVA-Med
+patch after installing the wheel:
+
+```bash
+bash scripts/patch_llava_flashattn.sh
+```
+
+That script checks whether `flash_attn` is importable and whether the current
+GPU supports FlashAttention 2. If both checks pass, it injects
+`attn_implementation="flash_attention_2"` into LLaVA-Med's installed
+`builder.py`. If FlashAttention 2 is unavailable or unsupported, it removes
+FlashAttention-specific arguments from LLaVA-Med's builder so the model uses
+PyTorch SDPA/default attention instead. To return LLaVA-Med to the SDPA-safe
+configuration at any point, rerun `bash scripts/setup_env.sh`. Do not use
+FlashAttention 2 on V100.
 
 Some HuggingFace models are gated or require accepting model terms. If model
 loading fails with an authentication error, run:
@@ -423,6 +439,8 @@ eval/
 
 scripts/
   setup_env.sh                  HPC environment setup helper
+  install_flash_attn.slurm      Optional FlashAttention install job
+  patch_llava_flashattn.sh      Optional LLaVA-Med FlashAttention enablement
   inspect_results.py            Summarize JSONL result files
   regrade_results.py            Re-run current grader on stored outputs
   run_*.slurm                   Batch jobs for math/medical evaluations

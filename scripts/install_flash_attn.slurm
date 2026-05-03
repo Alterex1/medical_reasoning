@@ -18,8 +18,11 @@ conda activate medProj
 
 nvcc --version
 
-echo "Building flash-attn for Hopper (sm_90)..."
-TORCH_CUDA_ARCH_LIST="9.0" MAX_JOBS=8 pip install flash-attn --no-build-isolation
+WHEEL_URL="https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.0/flash_attn-2.8.3+cu126torch2.10-cp310-cp310-linux_x86_64.whl"
+
+echo "Installing prebuilt flash-attn wheel..."
+echo "$WHEEL_URL"
+pip install "$WHEEL_URL"
 
 echo "Verifying install..."
 python -c "import flash_attn; print('flash-attn version:', flash_attn.__version__)"
